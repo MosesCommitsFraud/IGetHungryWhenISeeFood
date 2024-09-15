@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Food Blur",
+  "version": "1.0",
+  "description": "Blurs all YouTube videos that have food-related content in the thumbnail or title.",
+  "permissions": [],
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["content_script.js"]
+    }
+  ]
+}
