@@ -1,33 +1,64 @@
-// Function to fetch and cache food-related keywords from Datamuse API
-async function fetchFoodKeywordsFromAPI() {
+// content.js
+const config = require('./config');
+
+// Use the API key from the config file
+const USDA_API_KEY = config.USDA_API_KEY;
+
+// Cache for storing checked words
+let foodWordCache = {};
+
+// Regular expression to match valid words (alphabetic characters only)
+const validWordRegex = /^[a-zA-Z]+$/;
+
+// Function to check if a word is food-related using the USDA FoodData Central API
+async function isFoodKeyword(word) {
+  word = word.toLowerCase();
+
+  // Check if the word is already in the cache
+  if (foodWordCache.hasOwnProperty(word)) {
+    return foodWordCache[word];
+  }
+
+  // Validate the word before making the API call
+  if (!validWordRegex.test(word) || word.length < 2 || word.length > 30) {
+    foodWordCache[word] = false;
+    return false;
+  }
+
   try {
-    const response = await fetch("https://api.datamuse.com/words?ml=food&topics=food&max=1000");
-    if (!response.ok) throw new Error("Network response was not ok");
+    // Construct the API URL
+    const apiUrl = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${USDA_API_KEY}&query=${encodeURIComponent(word)}&pageSize=1`;
+
+    const response = await fetch(apiUrl);
+    if (!response.ok) {
+      throw new Error(`Network response was not ok (status ${response.status})`);
+    }
     const data = await response.json();
-    const keywords = data.map(item => item.word.toLowerCase());
-    // Cache the keywords with a timestamp
-    chrome.storage.local.set({ foodKeywords: keywords, keywordsTimestamp: Date.now() });
-    return keywords;
+
+    // If totalHits is greater than 0, the word is food-related
+    const isFood = data.totalHits && data.totalHits > 0;
+
+    // Cache the result
+    foodWordCache[word] = isFood;
+
+    // Store the cache in local storage to persist between sessions
+    chrome.storage.local.set({ foodWordCache });
+
+    return isFood;
   } catch (error) {
-    console.error("Failed to fetch food keywords from API:", error);
-    return [];
+    console.error(`Failed to check if word "${word}" is food-related:`, error);
+    // Treat errors as non-food to prevent unnecessary blurring
+    foodWordCache[word] = false;
+    return false;
   }
 }
 
-// Function to get food keywords (from cache or fetch)
-async function getFoodKeywords() {
+// Load the cache from local storage
+function loadFoodWordCache() {
   return new Promise((resolve) => {
-    chrome.storage.local.get(['foodKeywords', 'keywordsTimestamp'], async (result) => {
-      const { foodKeywords: cachedKeywords, keywordsTimestamp } = result;
-      const cacheDuration = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-      if (cachedKeywords && (Date.now() - keywordsTimestamp) < cacheDuration) {
-        // Use cached keywords if they are less than 24 hours old
-        resolve(cachedKeywords);
-      } else {
-        // Fetch new keywords from the API
-        const keywords = await fetchFoodKeywordsFromAPI();
-        resolve(keywords);
-      }
+    chrome.storage.local.get(['foodWordCache'], (result) => {
+      foodWordCache = result.foodWordCache || {};
+      resolve();
     });
   });
 }
@@ -35,40 +66,62 @@ async function getFoodKeywords() {
 // Function to blur an image
 function blurImage(img) {
   img.style.filter = "blur(10px)";
+  // Optionally, add a class to indicate it's blurred
+  img.classList.add('blurred-food-image');
 }
 
-// Check the page title for food-related keywords
-function checkTitleForFood(keywords) {
-  const title = document.title.toLowerCase();
-  return keywords.some(keyword => title.includes(keyword));
-}
+// Function to check if a thumbnail is food-related
+async function isThumbnailFoodRelated(thumbnailElement) {
+  // Get the title of the video
+  const titleElement = thumbnailElement.querySelector('#video-title');
+  const title = titleElement ? titleElement.textContent.trim().toLowerCase() : '';
 
-// Check if an image is food-related
-function isImageFoodRelated(img, keywords) {
-  const src = img.src.toLowerCase();
-  return keywords.some(keyword => src.includes(keyword));
-}
+  // Get the alt text of the thumbnail image
+  const imgElement = thumbnailElement.querySelector('img');
+  const altText = imgElement && imgElement.alt ? imgElement.alt.toLowerCase() : '';
 
-// Function to scan and blur images
-function scanAndBlurImages(keywords) {
-  const images = document.querySelectorAll("img");
-  images.forEach(img => {
-    if (isImageFoodRelated(img, keywords) || checkTitleForFood(keywords)) {
-      blurImage(img);
+  // Combine words from title and alt text
+  const wordsToCheck = [...title.split(/\s+/), ...altText.split(/\s+/)];
+
+  for (const word of wordsToCheck) {
+    if (await isFoodKeyword(word)) {
+      return true;
     }
-  });
+  }
+
+  return false;
+}
+
+// Function to scan and blur thumbnails
+async function scanAndBlurThumbnails() {
+  const thumbnailElements = document.querySelectorAll('ytd-thumbnail');
+
+  for (const thumbnail of thumbnailElements) {
+    // Check if the thumbnail is already processed
+    if (thumbnail.dataset.foodProcessed === 'true') continue;
+
+    thumbnail.dataset.foodProcessed = 'true';
+
+    if (await isThumbnailFoodRelated(thumbnail)) {
+      // Blur the thumbnail image
+      const imgElement = thumbnail.querySelector('img');
+      if (imgElement) {
+        blurImage(imgElement);
+      }
+    }
+  }
 }
 
 // Main execution
 (async () => {
-  const foodKeywords = await getFoodKeywords();
+  await loadFoodWordCache();
 
   // Run the main function
-  scanAndBlurImages(foodKeywords);
+  await scanAndBlurThumbnails();
 
   // Observe DOM changes to handle dynamically loaded content
-  const observer = new MutationObserver(() => {
-    scanAndBlurImages(foodKeywords);
+  const observer = new MutationObserver(async () => {
+    await scanAndBlurThumbnails();
   });
 
   observer.observe(document.body, { childList: true, subtree: true });

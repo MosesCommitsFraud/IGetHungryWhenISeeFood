@@ -1,17 +1,17 @@
 {
   "manifest_version": 3,
   "name": "IGetHungryWhenISeeFood",
-  "version": "1.11",
+  "version": "1.12",
   "description": "Blurs thumbnails if food-related content is detected in titles or images.",
   "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": ["https://api.datamuse.com/*"],
   "action": {
     "default_title": "IGetHungryWhenISeeFood"
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": ["https://www.youtube.com/*"],
       "js": ["content.js"],
+      "css": ["content.css"],
       "run_at": "document_end"
     }
   ]
