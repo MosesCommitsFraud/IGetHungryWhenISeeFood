@@ -13,5 +13,8 @@
     "@tensorflow/tfjs": "^4.21.0",
     "webpack": "^5.94.0",
     "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "opencv.js": "^1.2.1"
   }
 }

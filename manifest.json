@@ -1,18 +1,25 @@
 {
   "manifest_version": 3,
   "name": "IGetHungryWhenISeeFood",
-  "version": "1.12",
-  "description": "Blurs thumbnails if food-related content is detected in titles or images.",
+  "version": "1.16",
+  "description": "Blurs food in YouTube thumbnails using image recognition.",
   "permissions": ["activeTab", "scripting", "storage"],
-  "action": {
-    "default_title": "IGetHungryWhenISeeFood"
+  "background": {
+    "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["https://www.youtube.com/*"],
-      "js": ["content.js"],
-      "css": ["content.css"],
-      "run_at": "document_end"
+      "matches": ["*://www.youtube.com/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "host_permissions": [
+    "*://www.youtube.com/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["libs/*"],
+      "matches": ["<all_urls>"]
     }
   ]
 }
