@@ -3,7 +3,8 @@
   "name": "IGetHungryWhenISeeFood",
   "version": "1.11",
   "description": "Blurs thumbnails if food-related content is detected in titles or images.",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["https://api.datamuse.com/*"],
   "action": {
     "default_title": "IGetHungryWhenISeeFood"
   },
