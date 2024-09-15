@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "YouTube Food Blur",
-  "version": "1.3",
+  "name": "IGetHungryWhenISeeFood",
+  "version": "1.3b",
   "description": "Blurs YouTube videos with food-related content in the thumbnail or title.",
   "permissions": [],
   "host_permissions": ["https://en.wikipedia.org/*", "https://api.datamuse.com/*"],
