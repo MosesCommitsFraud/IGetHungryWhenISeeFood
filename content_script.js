@@ -1,31 +1,44 @@
 // Load the Coco SSD model
-let modelPromise = cocoSsd.load();
+let modelPromise = cocoSsd.load().catch(error => {
+  console.error('Error loading Coco SSD model:', error);
+});
 
-// Function to analyze an image and detect food items
+function setReferrerPolicy() {
+  const thumbnails = document.querySelectorAll('ytd-thumbnail img');
+  thumbnails.forEach(img => {
+    img.setAttribute('referrerpolicy', 'no-referrer');
+  });
+}
+
 async function isFoodInImage(imgElement) {
-  const model = await modelPromise;
-  const predictions = await model.detect(imgElement);
-
-  // List of labels considered as food items
-  const foodLabels = [
-    'apple', 'banana', 'cake', 'sandwich', 'orange', 'broccoli', 'carrot',
-    'hot dog', 'pizza', 'donut', 'cake', 'food', 'bowl', 'dining table',
-    'cup', 'fork', 'knife', 'spoon', 'bottle', 'wine glass'
-  ];
-
-  // Check if any predictions match food labels with sufficient confidence
-  for (const prediction of predictions) {
-    if (
-      foodLabels.includes(prediction.class) &&
-      prediction.score > 0.5 // Confidence threshold
-    ) {
-      return true;
+  try {
+    const model = await modelPromise;
+    if (!model) {
+      console.error('Coco SSD model is not loaded.');
+      return false;
     }
+    const predictions = await model.detect(imgElement);
+    const foodLabels = [
+      'apple', 'banana', 'cake', 'sandwich', 'orange', 'broccoli', 'carrot',
+      'hot dog', 'pizza', 'donut', 'bowl', 'dining table',
+      'cup', 'fork', 'knife', 'spoon', 'bottle', 'wine glass'
+    ];
+
+    for (const prediction of predictions) {
+      if (
+        foodLabels.includes(prediction.class) &&
+        prediction.score > 0.5
+      ) {
+        console.log('Food detected:', prediction.class, 'with score', prediction.score);
+        return true;
+      }
+    }
+  } catch (error) {
+    console.error('Error during image classification:', error);
   }
   return false;
 }
 
-// Function to blur videos with food-related thumbnails
 async function blurFoodVideos() {
   const videoElements = document.querySelectorAll(
     'ytd-rich-item-renderer, ytd-video-renderer, ytd-grid-video-renderer'
@@ -44,32 +57,35 @@ async function blurFoodVideos() {
       imgClone.crossOrigin = 'anonymous';
       imgClone.src = thumbnail.src;
 
-      // Wait for the image to load
-      await new Promise((resolve, reject) => {
-        imgClone.onload = resolve;
-        imgClone.onerror = reject;
-      });
+      try {
+        await new Promise((resolve, reject) => {
+          imgClone.onload = resolve;
+          imgClone.onerror = reject;
+        });
 
-      const foodDetected = await isFoodInImage(imgClone);
+        const foodDetected = await isFoodInImage(imgClone);
 
-      if (foodDetected) {
-        // Blur the thumbnail
-        thumbnail.style.filter = 'blur(8px)';
-        // Blur the title text
-        titleElement.style.filter = 'blur(8px)';
-        // Mark as processed
+        if (foodDetected) {
+          console.log('Blurring video:', titleElement.textContent.trim());
+          thumbnail.style.filter = 'blur(8px)';
+          titleElement.style.filter = 'blur(8px)';
+        } else {
+          console.log('No food detected in:', titleElement.textContent.trim());
+        }
+
         videoElement.classList.add('processed');
-      } else {
-        // Mark as processed to avoid reprocessing
-        videoElement.classList.add('processed');
+      } catch (error) {
+        console.error('Error loading image:', error);
       }
+    } else {
+      videoElement.classList.add('processed');
     }
   }
 }
 
-// Observe changes to handle dynamically loaded content
 function observeDOMChanges() {
   const observer = new MutationObserver(() => {
+    setReferrerPolicy();
     blurFoodVideos();
   });
 
