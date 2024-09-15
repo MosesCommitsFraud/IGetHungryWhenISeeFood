@@ -1,11 +1,25 @@
-// Function to fetch food-related words from Datamuse API
+// Function to fetch food-related words using the Wikimedia API
 async function fetchFoodKeywords() {
   try {
-    const response = await fetch('https://api.datamuse.com/words?ml=food&max=1000');
+    const response = await fetch(
+      'https://en.wikipedia.org/w/api.php?action=parse&page=List_of_cuisines&prop=text&format=json&origin=*'
+    );
     if (response.ok) {
       const data = await response.json();
-      // Extract the words from the API response
-      const foodKeywords = data.map(item => item.word.toLowerCase());
+      const htmlText = data.parse.text['*'];
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlText, 'text/html');
+      const foodKeywords = [];
+
+      // Extract food items from the list
+      const items = doc.querySelectorAll('.div-col li a');
+      items.forEach(item => {
+        const word = item.textContent.trim().toLowerCase();
+        if (word && !foodKeywords.includes(word)) {
+          foodKeywords.push(word);
+        }
+      });
+
       return foodKeywords;
     } else {
       console.error('Failed to fetch food keywords:', response.status);
@@ -16,6 +30,7 @@ async function fetchFoodKeywords() {
     return [];
   }
 }
+
 
 // Function to check if a title contains any food-related keywords
 function containsFoodKeyword(title, foodKeywords) {
