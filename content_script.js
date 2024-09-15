@@ -1,56 +1,73 @@
-// Function to fetch food-related words from Datamuse API
-async function fetchFoodKeywords() {
-  try {
-    const response = await fetch('https://api.datamuse.com/words?ml=food&max=1000');
-    if (response.ok) {
-      const data = await response.json();
-      // Extract the words from the API response
-      const foodKeywords = data.map(item => item.word.toLowerCase());
-      return foodKeywords;
-    } else {
-      console.error('Failed to fetch food keywords:', response.status);
-      return [];
+// Load the Coco SSD model
+let modelPromise = cocoSsd.load();
+
+// Function to analyze an image and detect food items
+async function isFoodInImage(imgElement) {
+  const model = await modelPromise;
+  const predictions = await model.detect(imgElement);
+
+  // List of labels considered as food items
+  const foodLabels = [
+    'apple', 'banana', 'cake', 'sandwich', 'orange', 'broccoli', 'carrot',
+    'hot dog', 'pizza', 'donut', 'cake', 'food', 'bowl', 'dining table',
+    'cup', 'fork', 'knife', 'spoon', 'bottle', 'wine glass'
+  ];
+
+  // Check if any predictions match food labels with sufficient confidence
+  for (const prediction of predictions) {
+    if (
+      foodLabels.includes(prediction.class) &&
+      prediction.score > 0.5 // Confidence threshold
+    ) {
+      return true;
     }
-  } catch (error) {
-    console.error('Error fetching food keywords:', error);
-    return [];
+  }
+  return false;
+}
+
+// Function to blur videos with food-related thumbnails
+async function blurFoodVideos() {
+  const videoElements = document.querySelectorAll(
+    'ytd-rich-item-renderer, ytd-video-renderer, ytd-grid-video-renderer'
+  );
+
+  for (const videoElement of videoElements) {
+    if (videoElement.classList.contains('processed')) {
+      continue;
+    }
+
+    const thumbnail = videoElement.querySelector('ytd-thumbnail img');
+    const titleElement = videoElement.querySelector('#video-title');
+
+    if (thumbnail && titleElement) {
+      const imgClone = new Image();
+      imgClone.crossOrigin = 'anonymous';
+      imgClone.src = thumbnail.src;
+
+      // Wait for the image to load
+      await new Promise((resolve, reject) => {
+        imgClone.onload = resolve;
+        imgClone.onerror = reject;
+      });
+
+      const foodDetected = await isFoodInImage(imgClone);
+
+      if (foodDetected) {
+        // Blur the thumbnail
+        thumbnail.style.filter = 'blur(8px)';
+        // Blur the title text
+        titleElement.style.filter = 'blur(8px)';
+        // Mark as processed
+        videoElement.classList.add('processed');
+      } else {
+        // Mark as processed to avoid reprocessing
+        videoElement.classList.add('processed');
+      }
+    }
   }
 }
 
-// Function to check if a title contains any food-related keywords
-function containsFoodKeyword(title, foodKeywords) {
-  return foodKeywords.some(keyword => title.toLowerCase().includes(keyword));
-}
-
-// Function to blur videos with food-related content
-async function blurFoodVideos() {
-  const foodKeywords = await fetchFoodKeywords();
-  const videoTitles = document.querySelectorAll('#video-title');
-
-  videoTitles.forEach(titleElement => {
-    const titleText = titleElement.textContent || titleElement.innerText;
-
-    if (containsFoodKeyword(titleText, foodKeywords)) {
-      // Find the closest video renderer element
-      const videoElement = titleElement.closest(
-        'ytd-rich-item-renderer, ytd-video-renderer, ytd-grid-video-renderer'
-      );
-      if (videoElement && !videoElement.classList.contains('blurred')) {
-        // Blur the thumbnail
-        const thumbnail = videoElement.querySelector('ytd-thumbnail');
-        if (thumbnail) {
-          thumbnail.style.filter = 'blur(8px)';
-        }
-        // Blur the title text
-        titleElement.style.filter = 'blur(8px)';
-        // Mark as blurred to avoid reprocessing
-        videoElement.classList.add('blurred');
-      }
-    }
-  });
-}
-
-// Observe changes to the DOM to handle dynamically loaded content
+// Observe changes to handle dynamically loaded content
 function observeDOMChanges() {
   const observer = new MutationObserver(() => {
     blurFoodVideos();
@@ -60,5 +77,6 @@ function observeDOMChanges() {
 }
 
 // Initial execution
+setReferrerPolicy();
 blurFoodVideos();
 observeDOMChanges();

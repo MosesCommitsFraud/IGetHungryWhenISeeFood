@@ -1,14 +1,14 @@
 {
   "manifest_version": 3,
   "name": "IGetHungryWhenISeeFood",
-  "version": "1.4",
+  "version": "1.6",
   "description": "Blurs YouTube videos with food-related content in the thumbnail or title.",
   "permissions": [],
-  "host_permissions": ["https://api.datamuse.com/*"],
+  "host_permissions": ["*://*.youtube.com/*"],
   "content_scripts": [
     {
       "matches": ["*://*.youtube.com/*"],
-      "js": ["content_script.js"]
-    }
+      "js": ["libs/tf.min.js", "libs/coco-ssd.min.js", "content_script.js"]   
+     }
   ]
 }
